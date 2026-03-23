@@ -1,3 +1,6 @@
+from sklearn.linear_model import LogisticRegression
+import lime
+import lime.lime_tabular
 import torch
 import numpy as np
 from torch import optim
@@ -6,6 +9,23 @@ from torch.autograd import Variable
 from scipy.optimize import linprog
 
 # code adapted from https://github.com/AI4LIFE-GROUP/ROAR
+
+def lime_explanation(model_pred_proba, X_train, x):
+	explainer = lime.lime_tabular.LimeTabularExplainer(training_data = X_train, 
+		discretize_continuous=False,
+		feature_selection='none')
+	exp = explainer.explain_instance(x,
+						model_pred_proba,
+						num_features=X_train.shape[1],
+						model_regressor=LogisticRegression()
+	)
+	coefficients = exp.local_exp[1][0][1]
+	# coefficients = np.zeros(X_train.shape[1])
+
+	# for tpl in exp.local_exp[1]:
+	# 	coefficients[tpl[0]] = tpl[1]
+	intercept = exp.intercept[1]
+	return coefficients, np.array(intercept)
 
 class ROAR():
     def __init__(self, W=None, W0=None, y_target=1,

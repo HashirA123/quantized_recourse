@@ -19,9 +19,6 @@ DECISION_THRESHOLD = 0.5
 
 class PROBE():
     def __init__(self, 
-            cat_feature_indices: List[int],
-            binary_cat_features: bool = True,
-            feature_costs: Optional[List[float]] = None,
             lr: float = 0.001,
             lambda_param: float = 0.01,
             y_target: List[int] = [0.45, 0.55],
@@ -34,9 +31,6 @@ class PROBE():
             inval_target_eps: float = 0.001,
             noise_variance: float = 0.01
         ):
-        self.cat_feature_indices = cat_feature_indices
-        self.binary_cat_features = binary_cat_features
-        self.feature_costs = feature_costs
         self.lr = lr
         self.lambda_param = lambda_param
         self.y_target = y_target
@@ -134,16 +128,13 @@ class PROBE():
         -------
         Counterfactual example as np.ndarray
         """
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cpu"
         # returns counterfactual instance
         # torch.manual_seed(0)
-        noise_variance = torch.tensor(noise_variance)
-
-        if feature_costs is not None:
-            feature_costs = torch.from_numpy(feature_costs).float().to(device)
+        noise_variance = torch.tensor(self.noise_variance).float().to(device)
 
         x = torch.from_numpy(x).float().to(device)
-        y_target = torch.tensor(y_target).float().to(device)
+        y_target = torch.tensor(self.y_target).float().to(device)
         lamb = torch.tensor(self.lambda_param).float().to(device)
         # x_new is used for gradient search in optimizing process
         x_new = Variable(x.clone(), requires_grad=True)
@@ -174,11 +165,7 @@ class PROBE():
 
                 f_x_new_binary = torch_model(x_new).squeeze(axis=0)
 
-                cost = (
-                    torch.dist(x_new, x, self.norm)
-                    if feature_costs is None
-                    else torch.norm(feature_costs * (x_new - x), self.norm)
-                )
+                cost = torch.dist(x_new, x, self.norm)
 
                 # invalidation_rate = compute_invalidation_rate(torch_model, random_samples)
                 invalidation_rate_c = self.compute_invalidation_rate_closed(torch_model, x_new, noise_variance)
@@ -202,7 +189,7 @@ class PROBE():
 
                 f_x_new = torch_model(x_new)[:, 1]
 
-            if (f_x_new > self.DECISION_THRESHOLD) and (invalidation_rate < self.invalidation_target + self.inval_target_eps):
+            if (f_x_new > DECISION_THRESHOLD) and (invalidation_rate < self.invalidation_target + self.inval_target_eps):
                     costs.append(cost)
                     ces.append(x_new)
                     
